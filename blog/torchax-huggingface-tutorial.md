@@ -12,12 +12,13 @@ series: "TorchAX + HuggingFace"
 Here is what the end result looks like:
 
 ```python
-import torchax
-torchax.enable_globally()
-
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 model = AutoModelForCausalLM.from_pretrained("google/gemma-3-1b-it", torch_dtype="bfloat16")
+
+import torchax
+torchax.enable_globally()  # Enable AFTER loading the model
+
 model.to("jax")  # That's it. Now running on JAX.
 ```
 
@@ -101,8 +102,8 @@ pip install -U jax[tpu]     # Google Cloud TPU
 # pip install -U jax[cuda12]  # NVIDIA GPU
 # pip install -U jax          # CPU only
 
-# 3. Install torchax and transformers
-pip install torchax transformers
+# 3. Install torchax, transformers, and flax (for JAX compatibility)
+pip install -U torchax transformers flax
 ```
 
 ---
@@ -148,9 +149,6 @@ import torchax
 import jax
 import time
 
-# Enable torchax globally — this lets PyTorch ops run on JAX
-torchax.enable_globally()
-
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Load model and tokenizer
@@ -159,6 +157,10 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(
     model_name, torch_dtype=torch.bfloat16, device_map="cpu"
 )
+
+# Enable torchax globally AFTER model loading
+# This prevents intercepting unsupported initialization ops
+torchax.enable_globally()
 
 # Move model weights to the JAX device
 model.to("jax")
@@ -179,7 +181,7 @@ print(f"Eager forward pass: {elapsed:.3f}s")
 ```
 
 **What happened:**
-1. `torchax.enable_globally()` activates the torchax environment so all tensor operations are intercepted.
+1. We load the model on CPU first, *then* call `torchax.enable_globally()`. This ordering is important — enabling torchax before model loading can intercept unsupported initialization ops and cause errors.
 2. `model.to("jax")` moves every parameter from CPU to the JAX device — just like `model.to("cuda")` for GPUs.
 3. The forward pass runs through PyTorch's code path, but every operation is executed by JAX under the hood.
 
@@ -255,14 +257,17 @@ jitted_forward = jax.jit(forward_no_cache)
 ### Benchmark: Eager vs. JIT
 
 ```python
+# Convert input to a native JAX array for jax.jit
+jax_input_ids = jax.device_put(inputs["input_ids"].numpy())
+
 # Warm up (first call triggers compilation)
-res = jitted_forward(weights, inputs["input_ids"])
+res = jitted_forward(weights, jax_input_ids)
 jax.block_until_ready(res)
 
 # Benchmark 3 runs
 for i in range(3):
     start = time.perf_counter()
-    res = jitted_forward(weights, inputs["input_ids"])
+    res = jitted_forward(weights, jax_input_ids)
     jax.block_until_ready(res)
     elapsed = time.perf_counter() - start
     print(f"Run {i}: {elapsed:.4f}s")
@@ -282,23 +287,29 @@ The JIT-compiled version runs orders of magnitude faster than eager mode. This i
 
 ## Step 3: The Simpler API — torchax.compile
 
-The `extract_jax` + manual JIT approach gives you full control, but for most cases there is a simpler way:
+The `extract_jax` + manual JIT approach gives you full control, but for most cases there is a simpler way. The catch is that `torchax.compile()` uses `jax.jit` under the hood, so we need to avoid passing dynamic boolean flags like `use_cache`. We wrap the model in a thin module that bakes in these constants:
 
 ```python
-import torchax
+import torch.nn as nn
 
-torchax.enable_globally()
-model.to("jax")
+class NoCacheModel(nn.Module):
+    def __init__(self, base_model):
+        super().__init__()
+        self.base_model = base_model
 
-# One-liner: compile the model
-compiled_model = torchax.compile(model)
+    def forward(self, input_ids):
+        # Return only logits to avoid HuggingFace output class pytree issues
+        return self.base_model(input_ids, use_cache=False, return_dict=False)[0]
+
+# One-liner: compile the wrapped model
+compiled_model = torchax.compile(NoCacheModel(model))
 
 # Use it like a normal PyTorch model
 with torch.no_grad():
-    output = compiled_model(input_ids)
+    logits = compiled_model(input_ids)
 ```
 
-Under the hood, `torchax.compile()` wraps your model in a `JittableModule` and applies `jax.jit`. The first call triggers compilation; subsequent calls are fast.
+Under the hood, `torchax.compile()` wraps your model in a `JittableModule` and applies `jax.jit`. The first call triggers compilation; subsequent calls are fast. The `NoCacheModel` wrapper ensures that boolean flags are constants (not traced) and that the output is a plain tensor (not a custom HuggingFace type that needs pytree registration).
 
 ---
 
@@ -376,15 +387,20 @@ from transformers.cache_utils import StaticCache
 def _flatten_static_cache(cache):
     return (
         cache.key_cache, cache.value_cache
-    ), (cache._config, cache.max_batch_size, cache.max_cache_len)
+    ), (cache.config, cache.max_batch_size, cache.max_cache_len,
+        getattr(cache, "device", None), getattr(cache, "dtype", None))
 
 def _unflatten_static_cache(aux, children):
-    cache = cache_utils.StaticCache(*aux)
+    config, max_batch_size, max_cache_len, device, dtype = aux
+    kwargs = {}
+    if device is not None: kwargs["device"] = device
+    if dtype is not None: kwargs["dtype"] = dtype
+    cache = StaticCache(config, max_batch_size, max_cache_len, **kwargs)
     cache.key_cache, cache.value_cache = children
     return cache
 
 register_pytree_node(
-    cache_utils.StaticCache,
+    StaticCache,
     _flatten_static_cache,
     _unflatten_static_cache,
 )
@@ -442,33 +458,6 @@ def generate_text(model, tokenizer, prompt, max_new_tokens=50):
 result = generate_text(model, tokenizer, "The secret to baking a good cake is")
 print(result)
 ```
-
-### JIT-Compiled Generation
-
-To make generation fast, we JIT-compile the per-token decode step using `torchax.interop.jax_jit`:
-
-```python
-import torchax.interop as interop
-
-def decode_one_token(model_weights, cur_token, cache_position, past_key_values):
-    logits, cache = torch.func.functional_call(
-        model,
-        model_weights,
-        (cur_token,),
-        dict(
-            cache_position=cache_position,
-            past_key_values=past_key_values,
-            return_dict=False,
-            use_cache=True,
-        ),
-    )
-    new_token = torch.argmax(logits[:, -1], dim=-1)[:, None]
-    return new_token, cache
-
-jitted_decode = interop.jax_jit(decode_one_token)
-```
-
-Note: we pass `model_weights` as an explicit argument (obtained from `model.state_dict()`) rather than closing over the model. This prevents JAX from inlining the weights as constants in the compiled graph, which would cause massive memory usage and slow compilation.
 
 ---
 

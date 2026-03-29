@@ -8,12 +8,12 @@ Run PyTorch HuggingFace models on Google TPUs (and GPUs) using [torchax](https:/
 ## Quick Start
 
 ```python
-import torchax
-torchax.enable_globally()
-
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 model = AutoModelForCausalLM.from_pretrained("google/gemma-3-1b-it", torch_dtype="bfloat16")
+
+import torchax
+torchax.enable_globally()  # Enable AFTER loading the model
 model.to("jax")  # Now running on JAX
 
 tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-1b-it")
@@ -67,7 +67,7 @@ pip install -U jax[tpu]      # Google Cloud TPU
 # pip install -U jax           # CPU only
 
 # Install torchax and transformers
-pip install torchax transformers
+pip install torchax transformers flax
 ```
 
 ## Models

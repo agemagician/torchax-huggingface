@@ -261,7 +261,9 @@ def evaluate_loss(model, dataloader, device, max_batches=50):
         for i, batch in enumerate(dataloader):
             if i >= max_batches:
                 break
-            batch = {k: v.to(device) for k, v in batch.items()}
+            # Drop attention_mask — Gemma's sliding window attention produces NaN
+            # with padded masks on torchax/JAX. Labels already mask padding with -100.
+            batch = {k: v.to(device) for k, v in batch.items() if k != "attention_mask"}
             outputs = model(**batch)
             total_loss += outputs.loss.item()
             total_batches += 1
@@ -347,7 +349,9 @@ start_time = time.time()
 for epoch in range(1):
     pbar = tqdm(enumerate(train_dataloader), total=len(train_dataloader))
     for step, batch in pbar:
-        batch = {k: v.to(device) for k, v in batch.items()}
+        # Drop attention_mask — Gemma's sliding window attention produces NaN with
+        # padded masks on torchax/JAX. Labels already mask padding with -100.
+        batch = {k: v.to(device) for k, v in batch.items() if k != "attention_mask"}
 
         loss, params, opt_state = step_fn(
             params, buffers, opt_state, batch, batch["labels"]

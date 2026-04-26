@@ -580,6 +580,10 @@ In this tutorial, we went from zero to a working chatbot running a HuggingFace m
 
 The key insight: torchax lets you use the entire HuggingFace ecosystem — models, tokenizers, configs — while running on JAX's high-performance backend. No model rewrites needed.
 
+### What's Next: Fine-Tuning
+
+Ready to go beyond inference? In [Part 2: Fine-Tune Any HuggingFace Model on TPUs with TorchAX](https://dev.to/ahmed_elnaggar/fine-tune-any-huggingface-model-on-tpus-with-torchax), we instruction-tune Gemma 4 E2B using LoRA and torchax's functional training API — all on a free Colab TPU.
+
 ### Resources
 
 - [torchax GitHub](https://github.com/google/torchax) — library source and documentation

@@ -21,9 +21,19 @@ mmdc -i diagrams/torchax-architecture.md -o torchax-architecture.svg
 
 ## Diagram Inventory
 
+### Inference
+
 | File | Description |
 |------|-------------|
 | `diagrams/torchax-architecture.md` | How torchax bridges PyTorch and JAX |
 | `diagrams/jit-compilation-flow.md` | Eager vs JIT compilation comparison |
 | `diagrams/tensor-parallelism.md` | Weight sharding for distributed inference |
 | `diagrams/ecosystem-comparison.md` | Decision tree: torchax vs alternatives |
+
+### Training
+
+| File | Description |
+|------|-------------|
+| `diagrams/training-loop-flow.md` | torchax functional training pipeline |
+| `diagrams/lora-architecture.md` | LoRA weight decomposition & JittableModule separation |
+| `diagrams/training-vs-inference.md` | Side-by-side comparison of inference vs training paths |

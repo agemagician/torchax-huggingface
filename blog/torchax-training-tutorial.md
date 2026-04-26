@@ -3,7 +3,7 @@ title: "Fine-Tune Any HuggingFace Model on TPUs with TorchAX"
 published: false
 description: "Learn how to fine-tune PyTorch HuggingFace models on Google TPUs using torchax and LoRA — no JAX rewrite needed. Includes evaluation, save/reload, and a Colab notebook."
 tags: machinelearning, pytorch, python, tutorial
-cover_image: https://raw.githubusercontent.com/ahmed-elnaggar/torchax-huggingface/main/assets/cover-image.png
+cover_image: https://raw.githubusercontent.com/agemagician/torchax-huggingface/main/assets/cover-image.png
 series: "TorchAX + HuggingFace"
 ---
 
@@ -27,7 +27,7 @@ Your PyTorch model. JAX's training primitives. Running on TPU. No rewrite needed
 
 In the [first part of this series](https://dev.to/ahmed_elnaggar/run-any-huggingface-model-on-tpus-a-beginners-guide-to-torchax), we ran HuggingFace models on JAX for fast inference. Now we take the next step: **training**. We will instruction-tune Gemma 4 E2B on the Databricks Dolly 15k dataset using LoRA and torchax's functional training API — all on a free Colab TPU.
 
-[![Open Full Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ahmed-elnaggar/torchax-huggingface/blob/main/notebooks/torchax_training_tutorial.ipynb) [![Open Quick Start In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ahmed-elnaggar/torchax-huggingface/blob/main/notebooks/torchax_training_quickstart.ipynb)
+[![Open Full Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_training_tutorial.ipynb) [![Open Quick Start In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_training_quickstart.ipynb)
 
 ---
 
@@ -484,9 +484,9 @@ All using PyTorch code. No JAX rewrite needed.
 ## Resources
 
 - **Notebooks:**
-  - [Full training tutorial](https://colab.research.google.com/github/ahmed-elnaggar/torchax-huggingface/blob/main/notebooks/torchax_training_tutorial.ipynb) — all the code from this post, ready to run
-  - [Training quickstart](https://colab.research.google.com/github/ahmed-elnaggar/torchax-huggingface/blob/main/notebooks/torchax_training_quickstart.ipynb) — same pipeline in ~10 cells
-  - [Inference tutorial](https://colab.research.google.com/github/ahmed-elnaggar/torchax-huggingface/blob/main/notebooks/torchax_huggingface_tutorial.ipynb) — Part 1 of this series
+  - [Full training tutorial](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_training_tutorial.ipynb) — all the code from this post, ready to run
+  - [Training quickstart](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_training_quickstart.ipynb) — same pipeline in ~10 cells
+  - [Inference tutorial](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_huggingface_tutorial.ipynb) — Part 1 of this series
 - **Libraries:**
   - [torchax GitHub](https://github.com/google/torchax)
   - [PEFT/LoRA documentation](https://huggingface.co/docs/peft)

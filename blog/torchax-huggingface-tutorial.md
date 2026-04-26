@@ -3,7 +3,7 @@ title: "Run Any HuggingFace Model on TPUs: A Beginner's Guide to TorchAX"
 published: false
 description: "Learn how to run PyTorch HuggingFace models on Google TPUs using torchax — no JAX rewrite needed. Includes benchmarks, text classification, text generation, and a Colab notebook."
 tags: machinelearning, pytorch, python, tutorial
-cover_image: https://raw.githubusercontent.com/ahmed-elnaggar/torchax-huggingface/main/assets/cover-image.png
+cover_image: https://raw.githubusercontent.com/agemagician/torchax-huggingface/main/assets/cover-image.png
 series: "TorchAX + HuggingFace"
 ---
 
@@ -26,7 +26,7 @@ Five lines. Your PyTorch model is now executing on JAX — with access to TPUs, 
 
 In this tutorial, we will go from zero to building a working chatbot powered by a HuggingFace model running on JAX. Along the way, you will learn key JAX concepts, see real benchmarks, and understand *why* this approach exists.
 
-[![Open Full Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ahmed-elnaggar/torchax-huggingface/blob/main/notebooks/torchax_huggingface_tutorial.ipynb) [![Open Quick Start In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ahmed-elnaggar/torchax-huggingface/blob/main/notebooks/torchax_quickstart.ipynb)
+[![Open Full Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_huggingface_tutorial.ipynb) [![Open Quick Start In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_quickstart.ipynb)
 
 ---
 
@@ -591,7 +591,7 @@ Ready to go beyond inference? In [Part 2: Fine-Tune Any HuggingFace Model on TPU
 - [Original tutorial series by Han Qi](https://huggingface.co/blog/qihqi/huggingface-jax-01) — the 3-part blog series this tutorial builds on
 - [JAX Documentation](https://docs.jax.dev/) — JIT compilation, pytrees, distributed arrays
 - [HuggingFace LLM Inference Optimization](https://huggingface.co/docs/transformers/llm_optims) — StaticCache and torch.compile docs
-- [Companion GitHub repo](https://github.com/ahmed-elnaggar/torchax-huggingface) — all code, notebooks, and diagrams
+- [Companion GitHub repo](https://github.com/agemagician/torchax-huggingface) — all code, notebooks, and diagrams
 
 ### Credits
 

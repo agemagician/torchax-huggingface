@@ -93,17 +93,15 @@ torchax-huggingface/
 ## Local Setup
 
 ```bash
-# Install PyTorch CPU (torchax handles the accelerator via JAX)
+# PyTorch CPU (torchax handles the accelerator via JAX)
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# Install JAX for your accelerator
-pip install -U jax[tpu]      # Google Cloud TPU
-# pip install -U jax[cuda12]   # NVIDIA GPU
-# pip install -U jax           # CPU only
-
-# Install torchax, transformers, and training dependencies
-pip install -U torchax transformers flax peft datasets optax
+# JAX + all dependencies in a single pip call (choose your accelerator)
+pip install -U 'jax[tpu]' torchax transformers flax peft datasets optax   # TPU
+# pip install -U 'jax[cuda12]' torchax transformers flax peft datasets optax  # GPU
 ```
+
+> **Colab note:** The notebooks install packages and automatically restart the runtime, since Colab pre-loads an older JAX that stays cached in memory until restart.
 
 ## Models
 

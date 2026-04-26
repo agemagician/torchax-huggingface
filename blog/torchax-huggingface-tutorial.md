@@ -93,18 +93,15 @@ Before diving into code, it helps to understand where torchax fits in the broade
 **Local setup:**
 
 ```bash
-# 1. Install PyTorch (CPU version — torchax handles the accelerator)
-pip install torch --index-url https://download.pytorch.org/whl/cpu  # Linux
-# pip install torch  # macOS
+# PyTorch CPU (torchax handles the accelerator via JAX)
+pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# 2. Install JAX for your accelerator
-pip install -U jax[tpu]     # Google Cloud TPU
-# pip install -U jax[cuda12]  # NVIDIA GPU
-# pip install -U jax          # CPU only
-
-# 3. Install torchax, transformers, and flax (for JAX compatibility)
-pip install -U torchax transformers flax
+# JAX + all dependencies in a single pip call
+pip install -U 'jax[tpu]' torchax transformers flax   # TPU
+# pip install -U 'jax[cuda12]' torchax transformers flax  # GPU
 ```
+
+> **Colab note:** The notebook installs packages and automatically restarts the runtime, since Colab pre-loads an older JAX that stays cached in memory until restart.
 
 ---
 

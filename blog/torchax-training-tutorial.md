@@ -65,13 +65,12 @@ The key difference: **functional training**. Instead of calling `loss.backward()
 # PyTorch CPU (torchax handles the accelerator via JAX)
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# JAX for your accelerator
-pip install -U jax[tpu]      # Google Cloud TPU
-# pip install -U jax[cuda12]   # NVIDIA GPU
-
-# torchax, transformers, and training dependencies
-pip install -U torchax transformers flax peft datasets optax
+# JAX + all training dependencies in a single pip call
+pip install -U 'jax[tpu]' torchax transformers flax peft datasets optax   # TPU
+# pip install -U 'jax[cuda12]' torchax transformers flax peft datasets optax  # GPU
 ```
+
+> **Colab note:** The notebook installs packages and automatically restarts the runtime, since Colab pre-loads an older JAX that stays cached in memory until restart.
 
 ---
 
@@ -275,7 +274,69 @@ baseline_loss, baseline_ppl = evaluate_loss(model, eval_dataloader, device)
 print(f"Baseline loss: {baseline_loss:.4f}, perplexity: {baseline_ppl:.2f}")
 ```
 
-We also generate sample responses for qualitative comparison after training.
+We also generate sample responses for qualitative comparison. For fast generation, we register `StaticCache` as a JAX pytree and use KV-cached decoding — only the new token is processed each step instead of the full sequence (~50x faster):
+
+```python
+from transformers.cache_utils import StaticCache
+from jax.tree_util import register_pytree_node
+
+def _flatten_static_cache(cache):
+    return (cache.key_cache, cache.value_cache), (
+        cache.config, cache.max_batch_size, cache.max_cache_len,
+        getattr(cache, "device", None), getattr(cache, "dtype", None),
+    )
+
+def _unflatten_static_cache(aux, children):
+    config, max_batch_size, max_cache_len, dev, dtype = aux
+    kwargs = {}
+    if dev is not None: kwargs["device"] = dev
+    if dtype is not None: kwargs["dtype"] = dtype
+    sc = StaticCache(config, max_batch_size, max_cache_len, **kwargs)
+    sc.key_cache, sc.value_cache = children
+    return sc
+
+register_pytree_node(StaticCache, _flatten_static_cache, _unflatten_static_cache)
+```
+
+The generation function uses prefill (process full prompt) then per-token decode with the cache and a `tqdm` progress bar:
+
+```python
+from tqdm.auto import tqdm
+
+def generate_response(model, tokenizer, instruction, device, max_new_tokens=100):
+    messages = [{"role": "user", "content": instruction}]
+    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    input_ids = tokenizer(prompt, return_tensors="pt")["input_ids"].to(device)
+    seq_len = input_ids.shape[1]
+
+    kv = StaticCache(config=model.config, max_batch_size=1,
+                     max_cache_len=seq_len + max_new_tokens,
+                     device=device, dtype=torch.bfloat16)
+    pos = torch.arange(seq_len, device=device)
+
+    model.eval()
+    with torch.no_grad():
+        # Prefill: process full prompt, populate cache
+        logits, kv = model(input_ids, cache_position=pos, past_key_values=kv,
+                           return_dict=False, use_cache=True)
+        tok = torch.argmax(logits[:, -1], dim=-1)[:, None]
+        generated = [tok[:, 0].item()]
+        pos = torch.tensor([seq_len], device=device)
+
+        # Decode: one token at a time using cached keys/values
+        for _ in tqdm(range(max_new_tokens - 1), desc="Generating", leave=False):
+            logits, kv = model(tok, cache_position=pos, past_key_values=kv,
+                               return_dict=False, use_cache=True)
+            tok = torch.argmax(logits[:, -1], dim=-1)[:, None]
+            tid = tok[:, 0].item()
+            if tid == tokenizer.eos_token_id:
+                break
+            generated.append(tid)
+            pos += 1
+
+    model.train()
+    return tokenizer.decode(generated, skip_special_tokens=True)
+```
 
 ---
 
@@ -414,7 +475,8 @@ with torch.no_grad():
         name: torch.tensor(np.array(p)).contiguous()
         for name, p in params.items()
     }
-    model.save_pretrained(save_dir, state_dict=cpu_state_dict)
+    # safe_serialization=False avoids a safetensors/torchax C-extension conflict on reload
+    model.save_pretrained(save_dir, state_dict=cpu_state_dict, safe_serialization=False)
 
 tokenizer.save_pretrained(save_dir)
 ```
@@ -429,13 +491,15 @@ with tx.disable_temporarily():
     reloaded_model = transformers.AutoModelForCausalLM.from_pretrained(
         MODEL_NAME, torch_dtype=torch.bfloat16
     )
-    reloaded_model = peft.PeftModel.from_pretrained(reloaded_model, save_dir)
+    # torch_device="cpu" forces PEFT to load adapter weights on CPU,
+    # avoiding a safetensors/torchax C-extension conflict.
+    reloaded_model = peft.PeftModel.from_pretrained(reloaded_model, save_dir, torch_device="cpu")
 
 reloaded_model.to(device)
 reloaded_model.eval()
 ```
 
-The pattern is the same as loading: disable torchax, load on CPU, then move to JAX. For LoRA models, you load the base model first, then attach the saved adapters with `PeftModel.from_pretrained()`.
+The pattern is the same as loading: disable torchax, load on CPU, then move to JAX. For LoRA models, you load the base model first, then attach the saved adapters with `PeftModel.from_pretrained()`. The `torch_device="cpu"` ensures PEFT loads weights through PyTorch's standard path rather than safetensors' C extension, which conflicts with torchax.
 
 ---
 

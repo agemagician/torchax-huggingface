@@ -109,8 +109,7 @@ pip install -U torchax transformers flax peft datasets optax
 
 | Model | Parameters | Free Colab | Notes |
 |---|---|---|---|
-| `google/gemma-4-E2B-it` | 2B | Yes (TPU) | Default in training tutorials |
-| `google/gemma-3-1b-it` | 1B | Yes (TPU/T4) | Default in inference tutorials |
+| `google/gemma-3-1b-it` | 1B | Yes (TPU/T4) | Default in all tutorials |
 | `google/gemma-3-7b-it` | 7B | Colab Pro recommended | Swap in for higher quality |
 | `gpt2` | 124M | Yes | Fast, good for testing |
 

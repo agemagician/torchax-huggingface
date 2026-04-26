@@ -25,7 +25,7 @@ for batch in dataloader:
 
 Your PyTorch model. JAX's training primitives. Running on TPU. No rewrite needed.
 
-In the [first part of this series](https://dev.to/ahmed_elnaggar/run-any-huggingface-model-on-tpus-a-beginners-guide-to-torchax), we ran HuggingFace models on JAX for fast inference. Now we take the next step: **training**. We will instruction-tune Gemma 4 E2B on the Databricks Dolly 15k dataset using LoRA and torchax's functional training API — all on a free Colab TPU.
+In the [first part of this series](https://dev.to/ahmed_elnaggar/run-any-huggingface-model-on-tpus-a-beginners-guide-to-torchax), we ran HuggingFace models on JAX for fast inference. Now we take the next step: **training**. We will instruction-tune Gemma 3 1B on the Databricks Dolly 15k dataset using LoRA and torchax's functional training API — all on a free Colab TPU.
 
 [![Open Full Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_training_tutorial.ipynb) [![Open Quick Start In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_training_quickstart.ipynb)
 
@@ -33,7 +33,7 @@ In the [first part of this series](https://dev.to/ahmed_elnaggar/run-any-hugging
 
 ## Why Train on TPUs?
 
-Google's Tensor Processing Units (TPUs) are purpose-built for matrix operations — the bread and butter of deep learning. Free Colab gives you access to a TPU v2-8 with ~15GB of high-bandwidth memory. That is enough to fine-tune a 2B parameter model with LoRA.
+Google's Tensor Processing Units (TPUs) are purpose-built for matrix operations — the bread and butter of deep learning. Free Colab gives you access to a TPU v2-8 with ~15GB of high-bandwidth memory. That is enough to fine-tune a 1B parameter model with LoRA.
 
 But training on TPUs traditionally meant rewriting your model in JAX (Flax, Equinox) or using PyTorch/XLA. **torchax** offers a third path: keep your PyTorch model, but use JAX's functional training primitives.
 
@@ -146,7 +146,7 @@ We use [Databricks Dolly 15k](https://huggingface.co/datasets/databricks/databri
 import datasets as hf_datasets
 from transformers import AutoTokenizer
 
-MODEL_NAME = "google/gemma-4-E2B-it"
+MODEL_NAME = "google/gemma-3-1b-it"
 DATASET_NAME = "databricks/databricks-dolly-15k"
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -210,6 +210,9 @@ with tx.disable_temporarily():
     model = transformers.AutoModelForCausalLM.from_pretrained(
         MODEL_NAME, torch_dtype=torch.bfloat16
     )
+
+# Sync pad_token_id so loss computation properly ignores padding
+model.config.pad_token_id = tokenizer.pad_token_id
 ```
 
 **Why disable?** HuggingFace model initialization uses operations (like in-place tensor filling) that torchax does not support. Disabling torchax during loading keeps everything on CPU, then we move to JAX after.
@@ -220,10 +223,10 @@ Now apply LoRA:
 peft_config = peft.LoraConfig(
     task_type=peft.TaskType.CAUSAL_LM,
     inference_mode=False,
-    r=16,                            # Rank of the LoRA matrices
-    lora_alpha=32,                   # Scaling factor
-    lora_dropout=0.05,
-    target_modules=["q_proj", "v_proj"],  # Which attention layers to adapt
+    r=8,                             # Rank of the LoRA matrices
+    lora_alpha=16,                   # Scaling factor
+    lora_dropout=0.0,                # 0.0 for bfloat16 numerical stability
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],  # All attention layers
 )
 model = peft.get_peft_model(model, peft_config)
 model.print_trainable_parameters()
@@ -235,6 +238,7 @@ Only 0.22% of parameters are trainable — that is the power of LoRA.
 Finally, enable torchax and move to the JAX device:
 
 ```python
+tx.enable_accuracy_mode()  # Float32 accumulation for bfloat16 stability
 tx.enable_globally()
 device = torch.device("jax")
 model.to(device)
@@ -293,9 +297,12 @@ buffers.update(frozen_params)
 
 ```python
 schedule = optax.warmup_cosine_decay_schedule(
-    init_value=0.0, peak_value=2e-4, warmup_steps=50, decay_steps=500
+    init_value=0.0, peak_value=1e-4, warmup_steps=50, decay_steps=500
 )
-optimizer = optax.adamw(learning_rate=schedule, weight_decay=0.01)
+optimizer = optax.chain(
+    optax.clip_by_global_norm(1.0),
+    optax.adamw(learning_rate=schedule, weight_decay=0.01),
+)
 opt_state = tx.interop.call_jax(optimizer.init, params)
 ```
 
@@ -436,7 +443,7 @@ The notebook supports full fine-tuning by changing one setting:
 TRAINING_MODE = "full"
 ```
 
-This trains all 2B parameters instead of just the LoRA adapters. The trade-off is much higher memory usage. To make it fit on free Colab TPU:
+This trains all parameters instead of just the LoRA adapters. The trade-off is much higher memory usage. To make it fit on free Colab TPU:
 
 - **AdaFactor optimizer** — uses ~50% less memory than AdamW (stores only row/column statistics instead of per-parameter moments)
 - **Reduced sequence length** — `MAX_SEQ_LEN = 256` halves activation memory
@@ -447,9 +454,15 @@ USE_ADAFACTOR = True
 USE_GRADIENT_CHECKPOINTING = True
 
 if TRAINING_MODE == "full" and USE_ADAFACTOR:
-    optimizer = optax.adafactor(learning_rate=schedule)
+    optimizer = optax.chain(
+        optax.clip_by_global_norm(1.0),
+        optax.adafactor(learning_rate=schedule),
+    )
 else:
-    optimizer = optax.adamw(learning_rate=schedule, weight_decay=0.01)
+    optimizer = optax.chain(
+        optax.clip_by_global_norm(1.0),
+        optax.adamw(learning_rate=schedule, weight_decay=0.01),
+    )
 ```
 
 Full fine-tuning gives a higher quality ceiling but LoRA gets you 90%+ of the way with a fraction of the compute.
@@ -462,7 +475,7 @@ Full fine-tuning gives a higher quality ceiling but LoRA gets you 90%+ of the wa
 |---|---|---|
 | `OutOfMemoryError` | Model + optimizer too large | Switch to LoRA, reduce `BATCH_SIZE` or `MAX_SEQ_LEN` |
 | `TypeError: not a valid JAX type` | Custom HuggingFace type not registered | Register with `jax.tree_util.register_pytree_node()` |
-| `Loss is NaN` | Learning rate too high | Reduce by 10x, ensure `torch_dtype=torch.bfloat16` |
+| `Loss is NaN` | Numerical instability in bfloat16 | 1. Call `tx.enable_accuracy_mode()` before `tx.enable_globally()`. 2. Reduce LR (try 1e-4). 3. Set `lora_dropout=0.0`. 4. Add `optax.clip_by_global_norm(1.0)`. |
 | `Slow first step` | Normal — JAX JIT compilation | Wait ~30-60s; subsequent steps are fast |
 | `make_train_step error` | API mismatch | Update: `pip install -U torchax` |
 

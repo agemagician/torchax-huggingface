@@ -582,7 +582,7 @@ The key insight: torchax lets you use the entire HuggingFace ecosystem — model
 
 ### What's Next: Fine-Tuning
 
-Ready to go beyond inference? In [Part 2: Fine-Tune Any HuggingFace Model on TPUs with TorchAX](https://dev.to/ahmed_elnaggar/fine-tune-any-huggingface-model-on-tpus-with-torchax), we instruction-tune Gemma 4 E2B using LoRA and torchax's functional training API — all on a free Colab TPU.
+Ready to go beyond inference? In [Part 2: Fine-Tune Any HuggingFace Model on TPUs with TorchAX](https://dev.to/ahmed_elnaggar/fine-tune-any-huggingface-model-on-tpus-with-torchax), we instruction-tune Gemma 3 1B using LoRA and torchax's functional training API — all on a free Colab TPU.
 
 ### Resources
 

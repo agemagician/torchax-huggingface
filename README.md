@@ -113,8 +113,8 @@ pip install -U 'jax[tpu]' torchax transformers flax peft datasets optax   # TPU
 
 ## Blog Posts
 
-1. [Run Any HuggingFace Model on TPUs: A Beginner's Guide to TorchAX](https://dev.to/ahmed_elnaggar/run-any-huggingface-model-on-tpus-a-beginners-guide-to-torchax) — Inference
-2. [Fine-Tune Any HuggingFace Model on TPUs with TorchAX](https://dev.to/ahmed_elnaggar/fine-tune-any-huggingface-model-on-tpus-with-torchax) — Training
+1. [Run Any HuggingFace Model on TPUs: A Beginner's Guide to TorchAX](https://dev.to/gde/run-any-huggingface-model-on-tpus-a-beginners-guide-to-torchax-4ln0) — Inference
+2. [Fine-Tune Any HuggingFace Model on TPUs with TorchAX](https://dev.to/gde/fine-tune-any-huggingface-model-like-gemma-on-tpus-with-torchax-5g21) — Training
 
 ## Credits & Attribution
 

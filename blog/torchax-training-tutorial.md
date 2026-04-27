@@ -25,7 +25,7 @@ for batch in dataloader:
 
 Your PyTorch model. JAX's training primitives. Running on TPU. No rewrite needed.
 
-In the [first part of this series](https://dev.to/ahmed_elnaggar/run-any-huggingface-model-on-tpus-a-beginners-guide-to-torchax), we ran HuggingFace models on JAX for fast inference. Now we take the next step: **training**. We will instruction-tune Gemma 3 1B on the Databricks Dolly 15k dataset using LoRA and torchax's functional training API — all on a free Colab TPU.
+In the [first part of this series](https://dev.to/gde/run-any-huggingface-model-on-tpus-a-beginners-guide-to-torchax-4ln0), we ran HuggingFace models on JAX for fast inference. Now we take the next step: **training**. We will instruction-tune Gemma 3 1B on the Databricks Dolly 15k dataset using LoRA and torchax's functional training API — all on a free Colab TPU.
 
 [![Open Full Tutorial In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_training_tutorial.ipynb) [![Open Quick Start In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/agemagician/torchax-huggingface/blob/main/notebooks/torchax_training_quickstart.ipynb)
 
@@ -551,7 +551,7 @@ Full fine-tuning gives a higher quality ceiling but LoRA gets you 90%+ of the wa
 
 ## The Big Picture: Inference + Training
 
-With the [inference tutorial](https://dev.to/ahmed_elnaggar/run-any-huggingface-model-on-tpus-a-beginners-guide-to-torchax) and this training tutorial, you now have the complete torchax story:
+With the [inference tutorial](https://dev.to/gde/run-any-huggingface-model-on-tpus-a-beginners-guide-to-torchax-4ln0) and this training tutorial, you now have the complete torchax story:
 
 1. **Run** any HuggingFace model on TPU (`model.to("jax")`)
 2. **Benchmark** with JIT compilation (10-100x speedup)
